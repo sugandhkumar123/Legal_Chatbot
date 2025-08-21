@@ -35,15 +35,42 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 if not GROQ_API_KEY:
     raise ValueError("GROQ_API_KEY environment variable not set!")
 
-FAISS_INDEX_PATH = "vectorstore/db_faiss"
-XLSX_FILE_PATH = "data/enhanced_vidhikarya_data.xlsx"
+FAISS_INDEX_PATH = "vectorstore_filter/db_faiss"
+#XLSX_FILE_PATH = "data/web_scrap_vidhikarya_data.xlsx"
+CSV_FILE_PATH = "data/enhanced_vidhikarya_data.csv"
 
 def load_data_from_xlsx(file_path):
     """Loads data from an .xlsx file into a pandas DataFrame."""
     print(f"Loading data from {file_path}...")
-    df = pd.read_excel(file_path)
+    df = pd.read_csv(file_path)
     # Ensure no empty values which can cause errors
     df = df.fillna('')
+    print("Data loaded successfully.")
+    return df
+
+def load_data(file_path):
+
+    print(f"Loading data from {file_path}...")
+    # Define the exact column names you want to load from the file
+    columns_to_keep = [
+        'Category',
+        'Sub Category',
+        'location',	
+        'question',	
+        'answers',	
+        'Number of Ans',
+        'Link',
+        'advocate_names',
+        'date_of_question',
+        'date_of_scraping',
+        'updated_no_of_answers',
+        'updated_answers'
+    ]
+
+    df = pd.read_csv(file_path, usecols=columns_to_keep, low_memory=False)
+    # Fill any missing values in the selected columns with an empty string
+    df = df.fillna('')
+    
     print("Data loaded successfully.")
     return df
 
@@ -237,7 +264,7 @@ def run_evaluation_mode(embeddings):
 
     rag_chain = get_rag_chain(embeddings, eval_llm) # Pass the eval_llm to the chain
 
-    dataframe = load_data_from_xlsx(XLSX_FILE_PATH)
+    dataframe = load_data(CSV_FILE_PATH)
     eval_dataframe = dataframe.iloc[40:50,:].copy()
 
     # 1. Generate predictions
@@ -262,7 +289,7 @@ def run_evaluation_mode(embeddings):
         # (This loop contains the logic for similarity, P/R/F1, ROUGE, METEOR as in the previous step)
         # For brevity, the detailed calculation logic from the previous step is assumed to be here.
         # It populates all the lists initialized above.
-        ground_truth_answer = row['answers']
+        ground_truth_answer = row['updated_answers']
         generated_answer = row['result']
         is_error = "Error:" in generated_answer or not generated_answer or not ground_truth_answer
         
@@ -290,7 +317,7 @@ def run_evaluation_mode(embeddings):
     eval_dataframe['meteor'] = meteor_scores
     eval_dataframe['ground_truth_claims'] = ground_truth_claims_list
     eval_dataframe['generated_claims'] = generated_claims_list
-    eval_dataframe.rename(columns={'answers': 'ground_truth'}, inplace=True)
+    eval_dataframe.rename(columns={'updated_answers': 'ground_truth'}, inplace=True)
 
     # 3. --- NEW: Correctness Grading using QAEvalChain ---
     print("\nRunning correctness evaluation with QAEvalChain...")
